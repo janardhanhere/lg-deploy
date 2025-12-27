@@ -2,7 +2,7 @@
 name = "lg-deploy"
 version = "0.1.0"
 description = "Open-source deployment runtime for LangGraph agents, built for scalable and production use."
-authors = [ { name = "janardhanhere", email = "" } ]
+authors = [ { name = "janardhanhere", email = "janardhan.balaji@outlook.com" } ]
 license = { text = "apache 2.0" }
 readme = "README.md"
 requires-python = ">=3.11"
