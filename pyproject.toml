@@ -6,4 +6,15 @@ authors = [ { name = "janardhanhere", email = "" } ]
 license = { text = "apache 2.0" }
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "fastapi>=0.127.1",
+    "pydantic>=2.12.5",
+    "uvicorn[standard]>=0.40.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.2",
+    "ruff>=0.14.10",
+]
