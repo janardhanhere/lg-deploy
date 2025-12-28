@@ -28,4 +28,4 @@ jobs:
         run: uv pip install -e .[dev]
 
       - name: Run tests with coverage
-        run: uv run pytest --cov=lg_deploy --cov-report=xml
+        run: uv run pytest --cov=src/lg_deploy --cov-report=xml
