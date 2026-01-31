@@ -30,7 +30,13 @@ jobs:
         run: uv pip install -e .[dev]
 
       - name: Run tests with coverage
-        run: uv run pytest --cov=src/lg_deploy --cov-report=xml
+        run: uv run pytest --cov=src/lg_deploy --cov-report=xml:coverage.xml
+
+      - name: Verify coverage report exists
+        run: |
+          echo "Current directory: $(pwd)"
+          ls -la coverage.xml || echo "coverage.xml not found in root"
+          cat coverage.xml | head -20 || echo "Could not read coverage.xml"
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
