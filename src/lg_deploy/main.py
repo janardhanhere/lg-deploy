@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
     )
 
     # Start worker
-    await app.state.worker.start()
+    app.state.worker.start()
     app.state.ready = True
     logger.info("Application started, worker running")
 

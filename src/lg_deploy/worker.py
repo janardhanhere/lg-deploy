@@ -22,8 +22,8 @@ class ExecutionWorker:
         self._running = False
         self._task = None
     
-    async def start(self):  # noqa: WPS507
-        """Start the worker - async required for task creation."""
+    def start(self):  # noqa: WPS507
+        """Start the worker."""
         self._running = True
         self._task = asyncio.create_task(self._run())
         logger.info("Execution worker started")
