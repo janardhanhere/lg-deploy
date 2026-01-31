@@ -1,6 +1,6 @@
 # lg-deploy — Software Requirements Specification (Software SRS)
 Authors: janardhanhere ( janardhan.balaji@outlook.com )
-Date: 28th December 2025
+Date: 28th December 2025 (Updated: 31st January 2026)
 
 ## 1. Introduction
 
@@ -185,9 +185,186 @@ The software must be designed to allow:
 
 ---
 
-## 10. Traceability
+## 10. Chat and Conversation Requirements [NEW]
+
+### SR-21: Session Management API
+The system must expose an API endpoint for creating and managing conversation sessions.
+
+**Endpoint:** `POST /sessions`
+**Request:** None (or optional metadata)
+**Response:**
+```json
+{
+  "session_id": "uuid",
+  "created_at": "timestamp"
+}
+```
+
+---
+
+### SR-22: Chat Message API
+The system must expose an API endpoint for sending messages within a session.
+
+**Endpoint:** `POST /sessions/{session_id}/messages`
+**Request:**
+```json
+{
+  "message": "user message content",
+  "stream": true
+}
+```
+**Response:** Execution identifier for tracking
+
+---
+
+### SR-23: Conversation History API
+The system must expose an API endpoint for retrieving conversation history.
+
+**Endpoint:** `GET /sessions/{session_id}/messages`
+**Response:**
+```json
+{
+  "session_id": "uuid",
+  "messages": [
+    {"role": "user", "content": "...", "timestamp": "..."},
+    {"role": "assistant", "content": "...", "timestamp": "..."}
+  ]
+}
+```
+
+---
+
+### SR-24: Session Listing API
+The system must expose an API endpoint for listing user sessions.
+
+**Endpoint:** `GET /sessions`
+**Response:** List of sessions with metadata (last activity, message count)
+
+---
+
+### SR-25: Streaming Response API
+The system must support streaming graph node updates via Server-Sent Events (SSE).
+
+**Endpoint:** `GET /sessions/{session_id}/stream`
+**Format:** SSE with event types:
+- `node.start`: Node execution started
+- `node.complete`: Node execution completed with state
+- `message`: Assistant message chunk
+- `complete`: Execution finished
+- `error`: Execution failed
+
+---
+
+### SR-26: Session Access Verification
+Every session-related API must verify that the requesting client owns the session.
+
+- Unauthorized access must return HTTP 403
+- Non-existent sessions must return HTTP 404
+
+---
+
+## 11. Data Model Requirements [NEW]
+
+### SR-27: Session Data Model
+The system must persist the following session information:
+
+```
+Session:
+  - session_id: UUID (primary key)
+  - created_at: timestamp
+  - updated_at: timestamp
+  - metadata: JSON object (optional)
+```
+
+---
+
+### SR-28: Message Data Model
+The system must persist conversation messages:
+
+```
+Message:
+  - message_id: UUID
+  - session_id: UUID (foreign key)
+  - role: enum [user, assistant, system]
+  - content: text
+  - created_at: timestamp
+  - execution_id: UUID (optional, links to graph execution)
+```
+
+---
+
+### SR-29: Graph State Persistence
+The system must persist graph state per session for resumable conversations:
+
+```
+GraphState:
+  - session_id: UUID
+  - checkpoint: JSON (LangGraph checkpoint data)
+  - updated_at: timestamp
+```
+
+---
+
+## 12. Worker Backend Requirements [NEW]
+
+### SR-30: Pluggable Worker Interface
+The system must define a worker interface that supports multiple implementations.
+
+**Required Methods:**
+- `start()`: Initialize worker
+- `stop()`: Graceful shutdown
+- `enqueue(execution_id)`: Add job to queue
+- `get_status(execution_id)`: Query job status
+
+---
+
+### SR-31: AsyncWorker Implementation
+The system must provide an AsyncWorker using Python asyncio.
+
+**Characteristics:**
+- No external dependencies
+- In-memory queue
+- Single-process execution
+- Suitable for development and testing
+
+---
+
+### SR-32: RQWorker Implementation
+The system must provide an RQWorker using Redis Queue.
+
+**Characteristics:**
+- Requires Redis server
+- Persistent queue across restarts
+- Supports distributed workers
+- Suitable for production
+
+---
+
+### SR-33: Worker Fallback
+If the configured worker backend is unavailable at startup, the system must:
+
+1. Log a warning
+2. Fall back to AsyncWorker
+3. Continue operation without crashing
+
+---
+
+## 13. Traceability
 
 Each software requirement defined in this document must map to:
 - one or more system requirements
 - one or more test cases
 - one or more architectural components
+
+**Traceability Matrix for New Requirements:**
+
+| Software Req | System Req | Description |
+|--------------|------------|-------------|
+| SR-21 | FR-10 | Session creation API |
+| SR-22 | FR-10, FR-12 | Chat message with state |
+| SR-23 | FR-11 | Conversation history |
+| SR-24 | FR-13 | Session listing |
+| SR-25 | FR-14 | Streaming responses |
+| SR-26 | FR-15 | Session access control |
+| SR-27-29 | FR-11, NFR-08 | Data models |
+| SR-30-33 | FR-16 | Pluggable workers |
