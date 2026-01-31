@@ -40,6 +40,7 @@ async def lifespan(app: FastAPI):
     try:
         await app.state.worker.stop()
     except asyncio.CancelledError:
+        # Swallow CancelledError in lifespan - it's expected during shutdown
         logger.info("Worker task cancelled during shutdown")
     logger.info("Application shutdown, worker stopped")
 

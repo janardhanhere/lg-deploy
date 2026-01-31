@@ -22,12 +22,14 @@ class ExecutionWorker:
         self._running = False
         self._task = None
     
-    async def start(self):
+    async def start(self):  # noqa: WPS507
+        """Start the worker - async required for task creation."""
         self._running = True
         self._task = asyncio.create_task(self._run())
         logger.info("Execution worker started")
     
-    async def stop(self):
+    async def stop(self):  # noqa: WPS507
+        """Stop the worker - async required for await task completion."""
         self._running = False
         if self._task:
             self._task.cancel()
@@ -35,7 +37,7 @@ class ExecutionWorker:
                 await self._task
             except asyncio.CancelledError:
                 logger.info("Execution worker task cancelled")
-                raise  # Re-raise as per best practices
+                # Don't re-raise - let caller handle gracefully
         logger.info("Execution worker stopped")
     
     async def _run(self):
