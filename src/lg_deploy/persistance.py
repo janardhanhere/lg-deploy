@@ -1,7 +1,12 @@
 from enum import Enum
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict
+
+
+def utc_now() -> datetime:
+    """Return current UTC time with timezone info."""
+    return datetime.now(timezone.utc)
 
 
 class ExecutionStatus(Enum):
@@ -15,7 +20,7 @@ class ExecutionStatus(Enum):
 class Execution:
     execution_id: str
     status: ExecutionStatus
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     result: Optional[dict] = None
@@ -42,9 +47,9 @@ class InMemoryPersistence:
         if execution:
             execution.status = status
             if status == ExecutionStatus.RUNNING:
-                execution.started_at = datetime.utcnow()
+                execution.started_at = utc_now()
             elif status in (ExecutionStatus.COMPLETED, ExecutionStatus.FAILED):
-                execution.completed_at = datetime.utcnow()
+                execution.completed_at = utc_now()
     
     def set_result(self, execution_id: str, result: dict):
         execution = self._executions.get(execution_id)
