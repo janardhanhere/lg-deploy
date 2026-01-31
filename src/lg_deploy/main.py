@@ -2,6 +2,7 @@ import logging
 import uuid
 from fastapi import FastAPI , Request
 from contextlib import asynccontextmanager
+import asyncio
 
 
 #logging configuration
@@ -15,6 +16,7 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.execution_queue = asyncio.Queue()
     app.state.ready = True
     yield
     app.state.ready = False
@@ -60,6 +62,12 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health():
         return {"status": "ok"}
+
+    @app.post("/enqueue")
+    async def enqueue(request: Request):
+        execution_id = str(uuid.uuid4())
+        await request.app.state.execution_queue.put(execution_id)
+        return {"execution_id": execution_id}
     
     return app
     
