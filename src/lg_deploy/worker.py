@@ -35,7 +35,7 @@ class ExecutionWorker:
                 await self._task
             except asyncio.CancelledError:
                 logger.info("Execution worker task cancelled")
-                # Don't re-raise here - let caller handle it
+                raise  # Re-raise as per best practices
         logger.info("Execution worker stopped")
     
     async def _run(self):
