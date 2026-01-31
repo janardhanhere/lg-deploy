@@ -1,10 +1,10 @@
 name: Build
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened]
+
 jobs:
   sonarqube:
     name: SonarQube
@@ -12,7 +12,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0
+
+      # ADD THESE STEPS:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Create virtual environment
+        run: uv venv
+
+      - name: Install dependencies
+        run: uv pip install -e .[dev]
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov=src/lg_deploy --cov-report=xml:${{ github.workspace }}/coverage.xml --cov-report=term
+
+      - name: Find and verify coverage report
+        shell: bash
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Workspace: ${{ github.workspace }}"
+          echo "Listing all files:"
+          ls -la
+          echo "Searching for coverage.xml:"
+          find ${{ github.workspace }} -name "coverage.xml" -type f 2>/dev/null
+          echo "Checking coverage.xml:"
+          ls -la ${{ github.workspace }}/coverage.xml || echo "File not found at workspace root"
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
