@@ -37,7 +37,7 @@ class ExecutionWorker:
                 await self._task
             except asyncio.CancelledError:
                 logger.info("Execution worker task cancelled")
-                # Don't re-raise - let caller handle gracefully
+                raise
         logger.info("Execution worker stopped")
     
     async def _run(self):
@@ -46,13 +46,14 @@ class ExecutionWorker:
                 execution_id = await asyncio.wait_for(
                     self.queue.get(), timeout=1.0
                 )
-                await self._process_execution(execution_id)
+                self._process_execution(execution_id)
             except asyncio.TimeoutError:
                 continue
             except Exception as e:
                 logger.error(f"Worker error: {e}")
     
-    async def _process_execution(self, execution_id: str):
+    def _process_execution(self, execution_id: str):
+        """Process a single execution - sync until real LangGraph integration."""
         logger.info(f"Processing execution: {execution_id}")
         
         # Update status to RUNNING
@@ -60,7 +61,8 @@ class ExecutionWorker:
         
         try:
             # Simulate work (replace with actual LangGraph execution later)
-            await asyncio.sleep(2)
+            import time
+            time.sleep(2)
             
             # Mark as completed
             self.persistence.update_status(execution_id, ExecutionStatus.COMPLETED)

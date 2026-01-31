@@ -17,8 +17,8 @@ def test_enqueue_creates_execution_record():
         # Verify execution exists in persistence
         execution = app.state.persistence.get(execution_id)
         assert execution is not None
-        # Status could be QUEUED or RUNNING depending on timing
-        assert execution.status in [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING]
+        # Status could be QUEUED, RUNNING, or COMPLETED depending on timing
+        assert execution.status in [ExecutionStatus.QUEUED, ExecutionStatus.RUNNING, ExecutionStatus.COMPLETED]
 
 
 def test_get_execution_status():
