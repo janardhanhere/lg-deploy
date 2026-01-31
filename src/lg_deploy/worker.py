@@ -46,23 +46,22 @@ class ExecutionWorker:
                 execution_id = await asyncio.wait_for(
                     self.queue.get(), timeout=1.0
                 )
-                self._process_execution(execution_id)
+                await self._process_execution(execution_id)
             except asyncio.TimeoutError:
                 continue
             except Exception as e:
                 logger.error(f"Worker error: {e}")
-    
-    def _process_execution(self, execution_id: str):
-        """Process a single execution - sync until real LangGraph integration."""
+
+    async def _process_execution(self, execution_id: str):
+        """Process a single execution asynchronously."""
         logger.info(f"Processing execution: {execution_id}")
-        
+
         # Update status to RUNNING
         self.persistence.update_status(execution_id, ExecutionStatus.RUNNING)
-        
+
         try:
             # Simulate work (replace with actual LangGraph execution later)
-            import time
-            time.sleep(2)
+            await asyncio.sleep(2)
             
             # Mark as completed
             self.persistence.update_status(execution_id, ExecutionStatus.COMPLETED)
