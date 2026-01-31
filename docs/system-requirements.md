@@ -1,6 +1,6 @@
 # lg-deploy — System Requirements Specification (SRS)
 Authors: janardhanhere( janardhan.balaji@outlook.com )
-Date: 28th December 2025
+Date: 28th December 2025 (Updated: 31st January 2026)
 
 ## 1. Purpose
 
@@ -99,6 +99,44 @@ The system must support multiple persistence backends, including:
 
 ---
 
+### FR-10: Session-Based Execution [NEW]  
+The system must support **session identifiers** to group related executions into conversations.
+
+---
+
+### FR-11: Conversation History Persistence [NEW]  
+The system must persist conversation history (message list) per session for retrieval across multiple requests.
+
+---
+
+### FR-12: Stateful Graph Execution [NEW]  
+The system must support resuming graph execution from previous conversation state when a session identifier is provided.
+
+---
+
+### FR-13: Conversation Listing [NEW]  
+The system must allow clients to list all conversations for a given session or user.
+
+---
+
+### FR-14: Message Streaming [NEW]  
+The system should support streaming graph node updates to clients in real-time.
+
+---
+
+### FR-15: Session Access Control [NEW]  
+The system must verify session ownership before allowing access to conversation data.
+
+---
+
+### FR-16: Pluggable Worker Backend [NEW]  
+The system must support multiple worker backend implementations including:
+- AsyncWorker (default): Uses Python asyncio, zero external dependencies
+- RQWorker: Uses RQ (Redis Queue) for distributed execution
+If the configured worker backend is unavailable, the system must fall back to the default AsyncWorker.
+
+---
+
 ## 5. Non-Functional Requirements
 
 ### NFR-01: Reliability  
@@ -126,11 +164,21 @@ The system must provide sufficient logging and identifiers to trace execution li
 
 ---
 
-### NFR-06: Extensibility  
+### NFR-06: Extensibility
 The system must allow future integration of:
 - Additional persistence backends
 - Distributed execution workers
 - External queueing systems
+
+---
+
+### NFR-07: Security and Isolation [NEW]
+The system must ensure conversation data is isolated and protected from unauthorized access.
+
+---
+
+### NFR-08: Conversation Durability [NEW]
+When durable persistence is configured, conversation history must survive application restarts.
 
 ---
 
@@ -158,7 +206,7 @@ The following are explicitly out of scope for the initial versions of lg-deploy:
 - Multi-tenant isolation
 - User interfaces or dashboards
 - Billing, quotas, or rate limiting
-- Streaming execution output to clients
+- ~~Streaming execution output to clients~~ (Moved to FR-14)
 
 ---
 
