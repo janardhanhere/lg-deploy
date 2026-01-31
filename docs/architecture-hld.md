@@ -1,6 +1,6 @@
 # lg-deploy — High Level Architecture Design (HLD)
 Authors: janardhanhere ( janardhan.balaji@outlook.com )
-Date: 28th December 2025
+Date: 28th December 2025 (Updated: 31st January 2026)
 
 ## 1. Overview
 
@@ -203,16 +203,211 @@ The system avoids coupling execution correctness to HTTP request success.
 
 ---
 
-## 9. Out of Scope (Initial Versions)
+## 9. Chat System Architecture [NEW]
 
-* Authentication and authorization
-* Multi-tenancy
-* Streaming execution output
-* UI dashboards
-* Billing and quotas
+### 9.1 Overview
+
+The chat system extends the execution model to support conversational interactions with LangGraph agents. Each conversation is a session that maintains state across multiple executions.
+
+### 9.2 Session-Based Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Client (UI/CLI)                         │
+└──────────────┬──────────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────────────┐
+│  HTTP API (FastAPI)                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ POST /       │  │ POST /       │  │ GET /            │  │
+│  │ sessions     │  │ sessions/{id}│  │ sessions/{id}/   │  │
+│  │              │  │ /messages    │  │ messages         │  │
+│  └──────────────┘  └──────┬───────┘  └──────────────────┘  │
+└───────────────────────────┼─────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Session Manager                                             │
+│  - Create/retrieve sessions                                  │
+│  - Load previous graph state                                 │
+│  - Persist conversation history                              │
+└──────────────┬──────────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Execution Queue                    Persistence Layer       │
+│  ┌─────────────────┐               ┌──────────────────┐    │
+│  │ Async Queue     │               │ Sessions Table   │    │
+│  │ or RQ Queue     │               │ Messages Table   │    │
+│  └────────┬────────┘               │ Graph State      │    │
+└───────────┼────────────────────────└──────────────────┘─────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Worker                                                      │
+│  - Load session state                                        │
+│  - Execute LangGraph with context                            │
+│  - Stream updates via SSE                                    │
+│  - Save checkpoint                                           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 9.3 Session Lifecycle
+
+**Turn 1 - New Session:**
+1. Client `POST /sessions` → Creates session
+2. Client `POST /sessions/{id}/messages` → Sends first message
+3. Worker loads default/empty graph state
+4. LangGraph executes with HumanMessage
+5. AIMessage saved to conversation history
+6. Graph checkpoint saved for session
+
+**Turn N - Existing Session:**
+1. Client `POST /sessions/{id}/messages` → Sends follow-up
+2. Worker loads previous graph checkpoint
+3. New HumanMessage appended to state
+4. LangGraph resumes from checkpoint
+5. Updated conversation saved
+6. New checkpoint saved
+
+### 9.4 Streaming Architecture
+
+**Server-Sent Events (SSE) Flow:**
+```
+Client                    Server
+  │     GET /stream         │
+  │ ──────────────────────> │
+  │                         │
+  │  <── event: node.start  │
+  │  <── data: {"node": "..."}
+  │                         │
+  │  <── event: node.output │
+  │  <── data: {"state": {...}}
+  │                         │
+  │  <── event: complete    │
+  │  <── data: {"final": ...}
+```
+
+Event types:
+- `node.start`: Node execution begins
+- `node.output`: Node produces output
+- `message`: AI message chunk (for streaming LLMs)
+- `error`: Execution failed
+- `complete`: Execution finished
 
 ---
 
-## 10. Summary
+## 10. Pluggable Worker Architecture [NEW]
+
+### 10.1 Worker Interface
+
+All worker implementations must conform to:
+
+```python
+class BaseWorker(ABC):
+    @abstractmethod
+    async def start(self): pass
+    
+    @abstractmethod
+    async def stop(self): pass
+    
+    @abstractmethod
+    async def enqueue(self, execution_id: str): pass
+    
+    @abstractmethod
+    def get_status(self, execution_id: str) -> ExecutionStatus: pass
+```
+
+### 10.2 AsyncWorker (Default)
+
+**Characteristics:**
+- Uses `asyncio.Queue` for in-memory scheduling
+- Single-process execution
+- No external dependencies
+- Suitable for: Development, testing, simple deployments
+
+**Trade-offs:**
+- Queue lost on restart
+- No horizontal scaling
+- Simplest configuration
+
+### 10.3 RQWorker (Production)
+
+**Characteristics:**
+- Uses Redis Queue for distributed scheduling
+- Persistent queue across restarts
+- Supports multiple worker processes
+- Suitable for: Production, horizontal scaling
+
+**Components:**
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   API       │────▶│    Redis    │◀────│  Worker 1   │
+│  (Enqueue)  │     │   (Queue)   │     │             │
+└─────────────┘     └─────────────┘     ├─────────────┤
+                                         │  Worker 2   │
+                                         │             │
+                                         └─────────────┘
+```
+
+**Trade-offs:**
+- Requires Redis server
+- More complex deployment
+- Production-grade features
+
+### 10.4 Worker Selection Strategy
+
+Configuration-driven selection:
+
+```python
+# config.yaml
+worker:
+  backend: "rq"  # or "async"
+  fallback: true  # fallback to async if rq unavailable
+  
+  rq:
+    redis_url: "redis://localhost:6379"
+    queue_name: "lg-deploy"
+```
+
+---
+
+## 11. Updated Scalability Model
+
+### Phase 1 — Single Process (Current)
+
+* AsyncWorker with in-memory queue
+* In-memory or PostgreSQL persistence
+* Single worker loop
+
+### Phase 2 — Multi-Worker with RQ
+
+* RQWorker with Redis queue
+* Multiple worker processes
+* Shared PostgreSQL persistence
+* Horizontal scaling within single host
+
+### Phase 3 — Distributed
+
+* Multiple API instances (stateless)
+* Redis queue with multiple workers
+* Database persistence cluster
+* Load balancer for API
+
+---
+
+## 12. Out of Scope (Current)
+
+* Authentication and authorization
+* Multi-tenancy
+* Streaming execution output via SSE (planned)
+* UI dashboards
+* Billing and quotas
+* Celery support (RQ preferred)
+
+---
+
+## 13. Summary
 
 The lg-deploy architecture emphasizes **durable execution**, **clear separation of concerns**, and **future scalability**, while remaining minimal and easy to reason about in early versions.
