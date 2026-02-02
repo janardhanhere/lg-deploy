@@ -2,6 +2,11 @@
 
 This package contains a standalone LangGraph agent definition.
 
+## Requirements
+
+- **Python**: >= 3.11
+- **LangGraph**: >= 1.0.7 (see `pyproject.toml` for exact version)
+
 ## File Structure
 
 ```
