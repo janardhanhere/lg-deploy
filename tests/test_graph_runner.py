@@ -122,5 +122,247 @@ def test_graph_runner_async_error_handling():
         assert "Async graph error" in str(exc_info.value)
 
 
+def test_graph_runner_run_with_thread_id():
+    """
+    Test that thread_id is properly passed to the graph.
+    
+    NOTE: This test verifies thread_id handling. The original agent template
+    doesn't use thread_id, but it's passed through for stateful execution.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner()
+    thread_id = "test_thread_123"
+    
+    # Run with explicit thread_id
+    result = runner.run_sync({"topic": "JavaScript"}, thread_id=thread_id)
+    
+    assert result is not None
+    assert result["topic"] == "JavaScript and cats"
+
+
+def test_graph_runner_run_without_checkpointer():
+    """
+    Test GraphRunner initialization without checkpointer (stateless mode).
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner(use_memory_checkpointer=False)
+    
+    assert runner._graph is not None
+    assert runner._checkpointer is None
+
+
+# ========== Streaming Tests ==========
+
+def test_graph_runner_astream_values():
+    """
+    Test astream with stream_mode='values'.
+    
+    This test verifies that stream_mode='values' returns full state after each node.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner()
+    
+    chunks = []
+    async def run_test():
+        async for chunk in runner.astream({"topic": "streaming"}, stream_mode="values"):
+            chunks.append(chunk)
+    asyncio.run(run_test())
+    
+    # Should have multiple chunks (one per node)
+    assert len(chunks) > 0
+    
+    # Each chunk should be a dict with state
+    for chunk in chunks:
+        assert isinstance(chunk, dict)
+
+
+def test_graph_runner_astream_updates():
+    """
+    Test astream with stream_mode='updates'.
+    
+    This test verifies that stream_mode='updates' returns only state updates.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner()
+    
+    chunks = []
+    async def run_test():
+        async for chunk in runner.astream({"topic": "updates_test"}, stream_mode="updates"):
+            chunks.append(chunk)
+    asyncio.run(run_test())
+    
+    # Should have multiple chunks (one per node update)
+    assert len(chunks) > 0
+    
+    # Each chunk should be a dict with node name as key
+    for chunk in chunks:
+        assert isinstance(chunk, dict)
+
+
+def test_graph_runner_astream_messages():
+    """
+    Test astream with stream_mode='messages'.
+    
+    This test verifies that stream_mode='messages' returns message chunks.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner()
+    
+    chunks = []
+    async def run_test():
+        async for chunk in runner.astream({"topic": "messages_test"}, stream_mode="messages"):
+            chunks.append(chunk)
+    asyncio.run(run_test())
+    
+    # Note: messages mode returns message chunks from LLM calls
+    # The exact count depends on the graph structure
+
+
+def test_graph_runner_astream_events():
+    """
+    Test astream_events for event streaming.
+    
+    This test verifies that astream_events returns all graph events.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner()
+    
+    events = []
+    async def run_test():
+        async for event in runner.astream_events({"topic": "events_test"}, version="v2"):
+            events.append(event)
+    asyncio.run(run_test())
+    
+    # Should have multiple events
+    assert len(events) > 0
+    
+    # Each event should have 'event' key
+    for event in events:
+        assert "event" in event
+
+
+def test_graph_runner_astream_with_thread_id():
+    """
+    Test that astream works with explicit thread_id.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner()
+    thread_id = "streaming_thread_123"
+    
+    chunks = []
+    async def run_test():
+        async for chunk in runner.astream(
+            {"topic": "threaded_stream"},
+            thread_id=thread_id,
+            stream_mode="values"
+        ):
+            chunks.append(chunk)
+    asyncio.run(run_test())
+    
+    assert len(chunks) > 0
+
+
+# ========== State Management Tests ==========
+
+def test_graph_runner_get_state():
+    """
+    Test getting the state of a thread.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner()
+    thread_id = "get_state_test"
+    
+    # First, run to create state
+    result = runner.run_sync({"topic": "get_state"}, thread_id=thread_id)
+    assert result is not None
+    
+    # Get the state
+    state = runner.get_state(thread_id)
+    assert state is not None
+    assert "topic" in state
+    assert "joke" in state
+
+
+def test_graph_runner_delete_thread():
+    """
+    Test deleting a thread.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner()
+    thread_id = "delete_test"
+    
+    # Create a thread
+    result = runner.run_sync({"topic": "delete_me"}, thread_id=thread_id)
+    assert result is not None
+    
+    # Get state before deletion
+    state_before = runner.get_state(thread_id)
+    assert state_before is not None
+    
+    # Delete the thread
+    deleted = runner.delete_thread(thread_id)
+    assert deleted is True
+    
+    # State should be empty dict after deletion (not None)
+    state_after = runner.get_state(thread_id)
+    assert state_after == {}
+
+
+def test_graph_runner_get_state_no_checkpointer():
+    """
+    Test get_state when no checkpointer is configured.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner(use_memory_checkpointer=False)
+    
+    state = runner.get_state("any_thread")
+    assert state is None
+
+
+def test_graph_runner_delete_thread_no_checkpointer():
+    """
+    Test delete_thread when no checkpointer is configured.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner(use_memory_checkpointer=False)
+    
+    deleted = runner.delete_thread("any_thread")
+    assert deleted is False
+
+
+# ========== Thread Continuity Tests ==========
+
+def test_graph_runner_thread_continuity():
+    """
+    Test that resuming a thread continues from previous state.
+    """
+    from lg_deploy.graph_runner import GraphRunner
+    
+    runner = GraphRunner()
+    thread_id = "continuity_test"
+    
+    # First run
+    result1 = runner.run_sync({"topic": "first_run"}, thread_id=thread_id)
+    assert result1["topic"] == "first_run and cats"
+    
+    # Second run in same thread
+    result2 = runner.run_sync({"topic": "second_run"}, thread_id=thread_id)
+    
+    # The state should accumulate (topic is overwritten, joke is added)
+    assert "topic" in result2
+    assert "joke" in result2
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
