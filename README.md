@@ -1,19 +1,31 @@
 # lg-deploy
+
 Open-source deployment runtime for LangGraph agents, built for scalable and production use.
 
-requires:
-python 3.11.9
+## Architecture
 
-goals :
+[View Architecture Diagram](docs/diagrams/architecture.md)
+
+## Documentation
+
+See the [docs](docs/) folder for all documentation.
+
+## Requirements
+
+- Python 3.11.9
+
+## Goals
+
 - Provide a robust and scalable deployment runtime for LangGraph agents.
 - Docker deployment support.
 - Easy integration with existing LangGraph workflows.
-- plugins to connect to various frontends like react , streamlit etc.
-- Cli support for managing deployments.
+- Plugins to connect to various frontends like react, streamlit etc.
+- CLI support for managing deployments.
 
+## Authors
 
-authors:
 - janardhanhere
 
-license:
-- apache 2.0
+## License
+
+- Apache 2.0
