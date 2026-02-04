@@ -160,6 +160,7 @@ class CheckpointerRegistry:
     
     def close_all(self) -> None:
         """Close all database checkpointers."""
+        # Use list() to avoid RuntimeError when dictionary changes during iteration
         for name in list(self._checkpointers.keys()):
             self.close(name)
 
