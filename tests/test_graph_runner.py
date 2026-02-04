@@ -141,18 +141,6 @@ def test_graph_runner_run_with_thread_id():
     assert result["topic"] == "JavaScript and cats"
 
 
-def test_graph_runner_run_without_checkpointer():
-    """
-    Test GraphRunner initialization without checkpointer (stateless mode).
-    """
-    from lg_deploy.graph_runner import GraphRunner
-    
-    runner = GraphRunner(use_memory_checkpointer=False)
-    
-    assert runner._graph is not None
-    assert runner._checkpointer is None
-
-
 # ========== Streaming Tests ==========
 
 def test_graph_runner_astream_values():
@@ -315,30 +303,6 @@ def test_graph_runner_delete_thread():
     # State should be empty dict after deletion (not None)
     state_after = runner.get_state(thread_id)
     assert state_after == {}
-
-
-def test_graph_runner_get_state_no_checkpointer():
-    """
-    Test get_state when no checkpointer is configured.
-    """
-    from lg_deploy.graph_runner import GraphRunner
-    
-    runner = GraphRunner(use_memory_checkpointer=False)
-    
-    state = runner.get_state("any_thread")
-    assert state is None
-
-
-def test_graph_runner_delete_thread_no_checkpointer():
-    """
-    Test delete_thread when no checkpointer is configured.
-    """
-    from lg_deploy.graph_runner import GraphRunner
-    
-    runner = GraphRunner(use_memory_checkpointer=False)
-    
-    deleted = runner.delete_thread("any_thread")
-    assert deleted is False
 
 
 # ========== Thread Continuity Tests ==========

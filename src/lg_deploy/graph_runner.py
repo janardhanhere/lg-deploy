@@ -10,15 +10,24 @@ Supports multiple streaming modes:
 - stream_mode="updates": Only state updates per node
 - stream_mode="messages": LLM message chunks
 - astream_events: All events with metadata
+
+Supports different checkpointers:
+- MemorySaver (default, development)
+- RedisSaver (high-performance)
+- PostgresSaver (production)
 """
 
 import logging
 import uuid
 from typing import Any, Dict, AsyncIterator, Literal
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.checkpoint.memory import MemorySaver
 
 from langgraph_agent.graph import create_graph
+from lg_deploy.graph_checkpointers import (
+    get_checkpointer,
+    get_checkpointer_from_env,
+    CheckpointerType,
+)
 
 
 logger = logging.getLogger('lg_deploy.graph_runner')
@@ -41,21 +50,35 @@ class GraphRunner:
         _graph: Compiled LangGraph state machine.
     """
     
-    def __init__(self, use_memory_checkpointer: bool = True):
+    def __init__(
+        self,
+        checkpointer_type: CheckpointerType = "memory",
+        *,
+        conn_string: str | None = None,
+        use_env: bool = False,
+    ):
         """
         Initialize the GraphRunner by compiling the graph.
         
         Args:
-            use_memory_checkpointer: If True, uses in-memory checkpointer for
-                                     thread-based state persistence. Set to False
-                                     for stateless operations.
+            checkpointer_type: Type of checkpointer to use.
+                - "memory": In-memory checkpointer (default, development)
+                - "redis": Redis-based checkpointer (high-performance)
+                - "postgres": PostgreSQL database checkpointer (production)
+            conn_string: Connection string for database checkpointers.
+                - For redis: redis://host:port (e.g., redis://localhost:6379)
+                - For postgres: postgresql://user:pass@host:port/dbname
+            use_env: If True, read configuration from environment variables.
+                Environment variables:
+                    - LG_CHECKPOINTER_TYPE
+                    - LG_CHECKPOINTER_CONN_STRING
         """
-        self._checkpointer = None
-        if use_memory_checkpointer:
-            self._checkpointer = MemorySaver()
-            logger.info("GraphRunner initialized with MemorySaver checkpointer")
+        if use_env:
+            self._checkpointer = get_checkpointer_from_env()
+            logger.info("GraphRunner initialized with environment-based checkpointer")
         else:
-            logger.info("GraphRunner initialized without checkpointer (stateless)")
+            self._checkpointer = get_checkpointer(checkpointer_type, conn_string=conn_string)
+            logger.info(f"GraphRunner initialized with {checkpointer_type} checkpointer")
         
         self._graph: CompiledStateGraph = create_graph().compile(
             checkpointer=self._checkpointer
@@ -233,6 +256,17 @@ class GraphRunner:
         except Exception as e:
             logger.error(f"Failed to delete thread {thread_id}: {e}")
             return False
+    
+    def close(self) -> None:
+        """
+        Close the checkpointer connection.
+        
+        This should be called when shutting down the application
+        to properly close database connections.
+        """
+        if hasattr(self._checkpointer, 'close'):
+            self._checkpointer.close()
+            logger.info("Checkpointer connection closed")
     
     def _make_config(self, thread_id: str | None) -> Dict[str, Any]:
         """
