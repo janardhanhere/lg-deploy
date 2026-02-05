@@ -144,7 +144,8 @@ def create_app() -> FastAPI:
                     yield f"data: {json.dumps(chunk)}\n\n"
                 yield "data: [DONE]\n\n"
             except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                logger.exception("Error during streamed execution for execution_id %s", execution_id)
+                yield f"data: {json.dumps({'error': 'An internal error has occurred.'})}\n\n"
         
         return StreamingResponse(generate(), media_type="text/event-stream")
     
