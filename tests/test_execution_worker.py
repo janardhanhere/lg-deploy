@@ -60,3 +60,33 @@ def test_worker_processes_execution():
         assert execution.status == ExecutionStatus.COMPLETED
         assert execution.result is not None
         assert execution.completed_at is not None
+
+
+def test_enqueue_with_input():
+    """Test that enqueue accepts and stores input data."""
+    with TestClient(app) as client:
+        input_data = {"topic": "test topic", "messages": [{"role": "user", "content": "hello"}]}
+        response = client.post("/enqueue", json={"input": input_data})
+        assert response.status_code == 200
+        execution_id = response.json()["execution_id"]
+
+        # Verify input was stored
+        stored_input = app.state.persistence.get_input(execution_id)
+        assert stored_input == input_data
+
+
+def test_stream_execution():
+    """Test SSE streaming endpoint."""
+    with TestClient(app) as client:
+        # First enqueue an execution with input
+        input_data = {"topic": "test topic"}
+        response = client.post("/enqueue", json={"input": input_data})
+        execution_id = response.json()["execution_id"]
+
+        # Stream the execution
+        response = client.get(f"/execute/{execution_id}/stream")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+        
+        # Content should contain some data
+        assert b"data:" in response.content
