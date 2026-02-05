@@ -25,16 +25,18 @@ class Execution:
     completed_at: Optional[datetime] = None
     result: Optional[dict] = None
     error: Optional[str] = None
+    input: Optional[dict] = None
 
 
 class InMemoryPersistence:
     def __init__(self):
         self._executions: Dict[str, Execution] = {}
     
-    def create(self, execution_id: str) -> Execution:
+    def create(self, execution_id: str, input_data: dict = None) -> Execution:
         execution = Execution(
             execution_id=execution_id,
-            status=ExecutionStatus.QUEUED
+            status=ExecutionStatus.QUEUED,
+            input=input_data
         )
         self._executions[execution_id] = execution
         return execution
@@ -60,3 +62,12 @@ class InMemoryPersistence:
         execution = self._executions.get(execution_id)
         if execution:
             execution.error = error
+    
+    def get_input(self, execution_id: str) -> Optional[dict]:
+        execution = self._executions.get(execution_id)
+        return execution.input if execution else None
+    
+    def set_input(self, execution_id: str, input_data: dict):
+        execution = self._executions.get(execution_id)
+        if execution:
+            execution.input = input_data
